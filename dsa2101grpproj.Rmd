@@ -1,0 +1,36 @@
+---
+title: "DSA2101GrpProject"
+author: "hui xuan"
+date: "2023-03-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading in the Dataset
+
+
+
+```{r billboard, echo = FALSE}
+billboard <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-09-14/billboard.csv')
+
+# do we need this?
+audio_features <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-09-14/audio_features.csv')
+```
+
+## Exploring the Data
+
+Some important details about each column 
+
+```{r eda}
+library(dplyr)
+
+# shape, column types, summary, structure of the dataset
+dim(billboard) # 10 columns of dataset with 327895 observations
+str(billboard) # url, week_id, song, performer, song_id chr, the rest numerics
+summary(select_if(billboard, is.numeric))
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
