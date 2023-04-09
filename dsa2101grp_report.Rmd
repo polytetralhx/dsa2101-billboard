@@ -1,0 +1,117 @@
+---
+title: "dsa2101_rmdcompiled"
+author: "hui xuan"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction (1 paragraph)
+
+Briefly introduce the data set. 
+You can repeat some of the data description found on the TidyTuesday repository, paraphrasing on your own terms. 
+Imagine that your reader has no prior knowledge about the data set.
+
+## Descriptive Statistics (1-2 paragraphs, a few code blocks)
+
+Mention any transformation or cleaning you have applied to the data. 
+Present key descriptive statistics to give a taste of what the data are like. 
+Resist the temptation to report descriptive statistics in bulk and be more selective in reporting only the most interesting/relevant statistics.
+
+```{r billboard, echo=FALSE}
+billboard <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-09-14/billboard.csv')
+
+audio_features <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-09-14/audio_features.csv')
+```
+
+```{r stats, echo=FALSE}
+library(tidyverse)
+library(stringr)
+
+# shape, column types, summary, structure of the dataset
+dim(billboard) # 10 columns of dataset with 327895 observations
+str(billboard) # url, week_id, song, performer, song_id chr, the rest numerics
+summary(select_if(billboard, is.numeric))
+
+```
+
+```{r transformations, echo=FALSE}
+#clean and merge dataset
+billboard1 <- billboard %>%
+  drop_na()
+
+audio_features1 <- audio_features %>%
+  drop_na()
+
+merged <- billboard1 %>%
+  left_join(audio_features, by = "song_id", suffix = c("_board", "_features")) #perform a left join?
+  
+merged$week_id <- as.POSIXct(merged$week_id, format = "%d/%m/%Y") #converts the string to datetime woah
+merged$week_id <- format(merged$week_id, format = "%Y")
+```
+
+## Question 1
+### insert question here
+#### introduction to the question
+
+#### Methodology
+
+##### 1st plot: line chart
+
+(insert description of variables plotted, design choices for why the choice of variables and information used is the best for providing the answers to the question)
+
+##### 2nd plot: bar chart
+
+(insert description of variables plotted, design choices for why the choice of variables and information used is the best for providing the answers to the question)
+
+#### Visualizations & Discussion
+
+```{r q1a, echo=FALSE}
+#insert code here
+```
+
+this plot means...
+
+```{r q1b, echo=FALSE}
+#insert code here
+```
+
+this plot means...
+
+## Question 2
+### insert question here
+#### introduction to the question
+
+#### Methodology
+
+##### 1st plot: line chart
+
+(insert description of variables plotted, design choices for why the choice of variables and information used is the best for providing the answers to the question)
+
+##### 2nd plot: bar chart
+
+(insert description of variables plotted, design choices for why the choice of variables and information used is the best for providing the answers to the question)
+
+#### Visualizations & Discussion
+
+```{r q2a, echo=FALSE}
+#insert code here
+```
+
+this plot means...
+
+```{r q2b, echo=FALSE}
+#insert code here
+```
+
+this plot means...
+
+## References
+- reference the dataset
+- other information sources should be added here
