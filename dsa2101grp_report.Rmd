@@ -33,6 +33,7 @@ audio_features <- readr::read_csv('https://raw.githubusercontent.com/rfordatasci
 ```{r stats, echo=FALSE}
 library(tidyverse)
 library(stringr)
+library(ggplot2)
 
 # shape, column types, summary, structure of the dataset
 dim(billboard) # 10 columns of dataset with 327895 observations
@@ -101,13 +102,152 @@ this plot means...
 #### Visualizations & Discussion
 
 ```{r q2a, echo=FALSE}
-#insert code here
+#kai lin's part
+
+tuesdata <- tidytuesdayR::tt_load('2021-09-14')
+billboard = tuesdata$billboard
+audio = tuesdata$audio_features
+
+billboard = billboard %>% na.omit()
+
+audio_features = audio %>% drop_na()
+
+billboard_audio_2 = billboard %>%
+  inner_join(audio_features, by = "song_id") %>%
+  separate(week_id, into = c("month", "day", "year"), sep = "/", 
+           convert = TRUE)
+
+
+factors = billboard_audio_2 %>%
+  filter(year >= 1961 & year <= 2020) %>%
+  group_by(year) %>%
+  distinct(year, song_id, .keep_all = TRUE)
+
+
+features = factors %>%
+  summarise(mean_dance = mean(danceability), mean_energy = mean(energy), 
+            mean_valence = mean(valence), mean_ac = mean(acousticness), 
+            mean_pop = mean(spotify_track_popularity)) %>%
+  mutate(std_dance = (mean_dance - min(mean_dance))/
+           (max(mean_dance) - min(mean_dance)), 
+         std_energy = (mean_energy - min(mean_energy))/
+           (max(mean_energy) - min(mean_energy)),
+         std_ac = (mean_ac - min(mean_ac))/
+           (max(mean_ac) - min(mean_ac)), 
+         std_valence = (mean_valence - min(mean_valence))/
+           (max(mean_valence) - min(mean_valence)),
+         std_pop = (mean_pop - min(mean_pop))/
+           (max(mean_pop) - min(mean_pop)))
+
+features2 = features %>%
+  gather(std_dance:std_valence, key = "Feature", value = "Value") %>%
+  gather(mean_dance:mean_ac, key = "type", value = "mean")
+
+
+
+ggplot(features2, aes(year, Value, color = Feature)) +
+  geom_smooth(linewidth = 1) +
+  scale_color_manual(values = c("black", "red", "blue", "green4"), 
+                     labels = c("Acousticness", "Danceability",
+                                "Energy", 
+                                "Valence")) +
+  labs(y = "", x = "Year",
+       title = "How features of popular songs have changed over time") +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_x_continuous(breaks = c(1961, seq(1970, 2020, 10)))
 ```
 
 this plot means...
 
 ```{r q2b, echo=FALSE}
-#insert code here
+# hui xuan's part
+#clean and merge dataset
+billboard1 <- billboard %>%
+  drop_na()
+
+audio_features1 <- audio_features %>%
+  drop_na()
+
+merged <- billboard1 %>%
+  left_join(audio_features, by = "song_id", suffix = c("_board", "_features")) #perform a left join?
+  
+merged$week_id <- as.POSIXct(merged$week_id, format = "%d/%m/%Y") #converts the string to datetime woah
+merged$week_id <- format(merged$week_id, format = "%Y")
+
+#find the maximum number of genres. we assume this by max word length
+max_length_genre <- merged %>%
+  select(week_id, week_position, song_id, peak_position, spotify_genre, spotify_track_id) %>%
+  drop_na() %>%
+  rename(year = week_id) %>%
+  filter(nchar(spotify_genre) == 319) #max number of genres is assumed to be 23, based on max length
+
+#===
+
+genre_nos = sprintf("Genre_%d", 1:23)
+genres2 = merged %>%
+  select(week_id, song_id, spotify_genre, spotify_track_id) %>%
+  drop_na() %>%
+  distinct() %>%
+  group_by(song_id, spotify_track_id, spotify_genre) %>%
+  separate(spotify_genre, into = genre_nos, sep = "', '") %>%
+  mutate_at(vars(genre_nos), ~ str_replace(., "'", "")) %>%
+  mutate_at(vars(genre_nos), ~ str_replace(., "[^[:alnum:]]", ""))
+
+split2 <- genres2 %>%
+  rename(year = week_id) %>%
+  pivot_longer(cols = starts_with("Genre"), 
+               values_to = "genre", 
+               values_drop_na = TRUE) %>%
+  select(!(name)) %>% ungroup()
+
+split2$genre = gsub("\\]", "", split2$genre)
+split2$genre = gsub("\\'", "", split2$genre)
+
+split_clean2 <- split2 %>%
+  filter(genre != "")
+
+genre_no_2 = split_clean2 %>% group_by(song_id) %>% 
+  mutate(factor = 1/n()) %>% 
+  ungroup() %>% 
+  group_by(genre) %>% 
+  summarise(no = sum(factor)) %>% 
+  arrange(-no)
+
+genres_top5 = genre_no_2 %>% slice_max(no, n = 5) %>% pull(genre)
+
+genre_no_2_2 = genre_no_2 %>%
+  mutate(genre = reorder(as.factor(genre), no))
+
+genres_top7 = genre_no_2 %>% 
+  slice_max(no, n=7) %>% 
+  pull(genre)
+
+split_genre_year2 <- split_clean2 %>%
+  mutate(year = as.numeric(year)) %>%
+  filter(year >= 1961 & year < 2020, genre %in% genres_top7) %>%
+  group_by(song_id, year) %>%
+  mutate(factor = 1/n()) %>%
+  ungroup() %>%
+  group_by(genre, year) %>%
+  summarise(genre_count = sum(factor)) %>%
+  arrange(desc(genre_count)) %>%
+  arrange(year) %>%
+  mutate(nearest_decade = year - (year %% 10) + 10,
+         proportion = genre_count / sum(genre_count))
+
+#===
+# define a colorblind palette
+cbPalette <- c("#CC79A7", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#000000", "maroon", "brown")
+
+ggplot(split_genre_year2, aes(x = nearest_decade, fill = genre)) + 
+  geom_col(mapping = aes(y = proportion), position = "fill") +
+  scale_fill_manual(values = cbPalette) + 
+  theme_minimal() +
+  ylim(0, 1) + 
+  ggtitle("Popularity of Genres over time") + 
+  labs(x = "Nearest Decade", y = "Proportion of genre in billboard", fill = "Top 7 Genres", subtitle = "Proportion of genre on Billboard by Decade")
+
 ```
 
 this plot means...
