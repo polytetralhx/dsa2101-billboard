@@ -74,7 +74,61 @@ merged$week_id <- format(merged$week_id, format = "%Y")
 #### Visualizations & Discussion
 
 ```{r q1a, echo=FALSE}
-#insert code here
+install.packages("tidytuesdayR")
+library(tidyverse)
+tuesdata <- tidytuesdayR::tt_load('2021-09-14')
+tuesdata <- tidytuesdayR::tt_load(2021, week = 38)
+billboard <- tuesdata$billboard
+audio <- tuesdata$audio_features
+
+perf = billboard %>%
+  separate(week_id, into = c("month", "day", "year"), sep = "/") %>%
+  filter(year >= 2010 & year <= 2020, week_position <= 10) %>%
+  group_by(performer) %>%
+  summarise(no_weeks = n())
+
+perf_top_5 = perf %>% slice_max(no_weeks, n = 5) %>% pull(performer)
+
+# Filter data to include only the top 5 performers
+filtered_data <- billboard %>%
+  filter(performer %in% perf_top_5) %>%
+  separate(week_id, into = c("month", "day", "year"), sep = "/") %>%
+  mutate(year = as.numeric(year)) %>%
+  filter(year >= 2010 & year <= 2020) %>%
+  select(performer, year, week_position)
+
+  
+# Calculate average popularity per year for each performer
+avg_popularity <- filtered_data %>%
+  group_by(performer, year) %>%
+  summarise(avg_popularity = mean(week_position, na.rm = TRUE))
+  
+  
+# The Weeknd (2010-2011) and Bruno Mars (2019-2020)
+extra_years <- tibble(
+  performer = c("The Weeknd", "The Weeknd", "Bruno Mars", "Bruno Mars"),
+  year = c(2010, 2011, 2019, 2020),
+  avg_popularity = c(105, 105, 105, 105)
+)
+
+# Add the data to the avg_popularity data frame
+avg_popularity <- bind_rows(avg_popularity, extra_years)
+
+# Create the line graph using ggplot2
+line_graph_imputed_updated <- ggplot(avg_popularity, aes(x = year, y = avg_popularity, group = performer, color = performer)) +
+  geom_line(linewidth = 1, alpha = 0.7) +
+  geom_point(size=1,alpha = 0.7) +
+  scale_x_continuous(breaks = seq(2010, 2020, 1)) +
+  ylim(105,1) + 
+  labs(title = "Average Weekly Position of Top 5 Performers (2010-2020)",
+       subtitle = "Top 5 performers are those with the most weeks spent in the top 10 positions",
+       x = "Year",
+       y = "Weekly Position",
+       color = "Performer") +
+  theme_minimal()
+
+# Print the updated line graph
+print(line_graph_imputed_updated)
 ```
 
 this plot means...
