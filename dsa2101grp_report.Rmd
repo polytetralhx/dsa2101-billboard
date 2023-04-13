@@ -74,6 +74,7 @@ merged$week_id <- format(merged$week_id, format = "%Y")
 #### Visualizations & Discussion
 
 ```{r q1a, echo=FALSE}
+# charmaine part
 install.packages("tidytuesdayR")
 library(tidyverse)
 tuesdata <- tidytuesdayR::tt_load('2021-09-14')
