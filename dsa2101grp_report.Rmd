@@ -1,81 +1,131 @@
 ---
-title: "dsa2101_rmdcompiled"
-author: "hui xuan"
-date: "`r format(Sys.time(), '%d %B %Y')`"
-output: 
+title: "DSA2101 Billboard Top 100, Group 42"
+author: "CHO HYEONAH, KANG YUTING, LIM HUI XUAN, LIM JUN YAN CHARMAINE, TOH KAI LIN"
+output:
   html_document:
-    toc: TRUE
-    toc_float: TRUE
+    highlight: zenburn
+    df_print: paged
+    toc: true
+    toc_depth: 4
+    toc_float: 
+      collapse: false
+      smooth_scroll: true
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(include = TRUE, message = FALSE, warning = FALSE, 
+                      fig.align = "center",  out.width = "90%")
 ```
 
-## Introduction (1 paragraph)
+## **Introduction**
 
-Briefly introduce the data set. 
-You can repeat some of the data description found on the TidyTuesday repository, paraphrasing on your own terms. 
-Imagine that your reader has no prior knowledge about the data set.
+The aim of this report is to analyse two datasets - the billboard and audio features datasets - to gain insights into the factors that contribute to a song's success. The billboard dataset comprises 10 variables, including the song and performer name, as well as the song's position and number of weeks it has stayed on the billboard charts for each week. The audio features dataset, on the other hand, contains 22 variables that describe various aspects of the song, which includes tempo, danceability, and acousticness. By examining the relationship between these variables, we are aiming to identify patterns and trends that shed light on the characteristics of successful songs. 
 
-## Descriptive Statistics (1-2 paragraphs, a few code blocks)
+## **Descriptive Statistics**
 
-Mention any transformation or cleaning you have applied to the data. 
-Present key descriptive statistics to give a taste of what the data are like. 
-Resist the temptation to report descriptive statistics in bulk and be more selective in reporting only the most interesting/relevant statistics.
+### **Statistical Summary of Dataset**
 
-```{r billboard, echo=FALSE}
+The billboard dataset contains information on 327,895 songs (24,360 unique songs) that have appeared on the Billboard charts. The longest and shortest song runs on the charts are 87 weeks and 1 week respectively. The average and the standard deviation of weeks the songs have been on charts are approximately 9 weeks and 7.6 weeks respectively. The date of the dataset ranges from 1958 to 2021, a total of 63 years.
+
+The audio_features dataset contains information on the audio features of 29,503 of songs from 10,059 performers. The datasets include a wide range of genres, from pop and rock to hip-hop and electronic music genres. The table below shows the average and standard deviation of each of the factors.
+
+We first read in both the Billboard Top 100 and audio_features datasets.
+
+```{r billboard, echo = FALSE}
+# Reading in the 2 datasets
 billboard <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-09-14/billboard.csv')
 
 audio_features <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-09-14/audio_features.csv')
 ```
 
-```{r stats, echo=FALSE}
+A statistical summary of the datasets are then generated with the block of code below:
+
+```{r stats}
 library(tidyverse)
 library(stringr)
+library(dplyr)
 library(ggplot2)
 
-# shape, column types, summary, structure of the dataset
-dim(billboard) # 10 columns of dataset with 327895 observations
-str(billboard) # url, week_id, song, performer, song_id chr, the rest numerics
+# statistical summary of all numeric columns in billboard
 summary(select_if(billboard, is.numeric))
 
+# Summary of audio_features dataset
+options(scipen = 999)
+audio_features_summary <- audio_features %>%
+  select(spotify_track_duration_ms,danceability,energy,key,loudness,speechiness,acousticness, instrumentalness, liveness, valence, tempo, time_signature,spotify_track_popularity)%>%
+  gather(key = "factors", value = "value") %>%
+  group_by(factors) %>%
+  summarize(mean = mean(value, na.rm = TRUE), standard_deviation = sd(value, na.rm = TRUE)) %>%
+  select(factors, mean, standard_deviation)
+audio_features_summary
 ```
 
-```{r transformations, echo=FALSE}
-#clean and merge dataset
+### **Correlation Matrix**
+
+A correlation matrix between all the variables in the audio_features dataset is then created and plotted using a heatmap to visualize the the relationship between variables.
+
+```{r correlation between audio features, echo = FALSE}
+# Correlation between audio features
+corr_features = audio_features %>%
+  select(danceability:tempo) %>%
+  cor(use = "pair")
+
+corr_df = data.frame(corr_features, row.names = NULL) %>%
+  mutate(var1 = row.names(corr_features)) %>%
+  gather(danceability:tempo, key = "features", value = "correlation")
+
+ggplot(corr_df) +
+  geom_tile(aes(var1, features, fill = correlation)) +
+  scale_fill_distiller(palette = "RdBu") +
+  labs(x = "", y = "", title = "Correlation between audio features") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+From the above heatmap, it can be seen that loudness and energy seem to be the most strongly and positively correlated variables, while acousticness and energy are the most strongly and negatively correlated variables. These relationships will be explored in more detail later in the report.
+
+### **Transformations and Cleaning**
+
+```{r transformations}
+# Clean and merge the 2 datasets
 billboard1 <- billboard %>%
   drop_na()
 
-audio_features1 <- audio_features %>%
+audio_features <- audio_features %>%
   drop_na()
 
 merged <- billboard1 %>%
-  left_join(audio_features, by = "song_id", suffix = c("_board", "_features")) #perform a left join?
+  inner_join(audio_features, by = "song_id", suffix = c("_board", "_features"))
   
-merged$week_id <- as.POSIXct(merged$week_id, format = "%d/%m/%Y") #converts the string to datetime woah
+merged$week_id <- as.POSIXct(merged$week_id, format = "%d/%m/%Y")
 merged$week_id <- format(merged$week_id, format = "%Y")
 ```
 
-## Question 1
-### insert question here
-#### introduction to the question
+To clean and transform the data such that it is usable for exploratory data analysis, we first remove the rows containing missing values from both the billboard and audio features dataset before performing an inner join between the data sets by the song_id columns from both datasets. We also convert the week ID variable into a date type variable for future analysis.
 
-#### Methodology
 
-##### 1st plot: line chart
+## **Question 1**
 
-(insert description of variables plotted, design choices for why the choice of variables and information used is the best for providing the answers to the question)
+### *"How did the popularity of the top 5 performers from the Billboard Top 100 change between 2010 and 2020?"*
 
-##### 2nd plot: bar chart
+#### **Introduction to the question**
 
-(insert description of variables plotted, design choices for why the choice of variables and information used is the best for providing the answers to the question)
+The billboard dataset provides information on songs, performers, and their weekly positions from 1965 to 2021. The audio_features dataset provides information on the spotify popularity. Our objective is to determine the top 5 performers in the Billboard Top 100, with "top" defined as the number of times a performer's songs appear in the top 20 rankings. Our focus lies in identifying the top 3 years during which the top 5 performers were widely recognized. This inquiry is driven by our desire to ascertain the most prominent artists among the numerous Billboard Top 100 performers and to determine the specific years in which their songs reached the Top 20. This information will reveal the years during which these artists gained significant popularity.
 
-#### Visualizations & Discussion
+#### **Methodology**
 
-```{r q1a, echo=FALSE}
-# charmaine part
+##### **1st plot: Line Chart**
 
+The first visualisation uses the line graph. The data is filtered to include only the years between 2010 and 2020, and subsequently grouped by the performer to calculate the number of weeks they spent in the top 20 positions. The data was further filtered to include only these top 5 performers, and their average weekly positions were calculated for each year. To account for missing years, such as The Weeknd (2010-2011), Bruno Mars (2015, 2019-2020) & Ed Sheeran (2010-2011, 2016, 2019-2020), additional data points were added with a weekly position of 105 (indicating no presence in the charts for those years). The resulting graph was created using ggplot2, featuring line and point geoms to display the average weekly position of each performer across the years, with color used to distinguish between different performers. The x-axis represents the year, while the y-axis displays the weekly position, with the graph emphasizing the overall trend of these top performers over the years.
+
+
+##### **2nd plot: Bar Chart**
+
+The second visualization is a bar graph and uses a facet wrap. Facet wrap allows the presentation of 5 bar graphs for the top 5 performers. We uses the weekly position as a way to count the number of times the song of the performer appears as Top 20.We used the year as the x-axis and the number of times the song of the performer appeared in the Top 20 on Billboard as the y-axis. This allows us to see how the appearance frequency of the performer changes over the years and determine how the popularity of these performers changed throughout the decade.
+
+#### **Visualisations & Discussion**
+
+```{r q1a}
+# 1st plot: line chart
 perf = billboard %>%
   separate(week_id, into = c("month", "day", "year"), sep = "/") %>%
   filter(year >= 2010 & year <= 2020, week_position <= 20) %>%
@@ -92,13 +142,12 @@ filtered_data <- billboard %>%
   filter(year >= 2010 & year <= 2020) %>%
   select(performer, year, week_position)
   
-
 # Calculate average popularity per year for each performer
 average_popularity <- filtered_data %>%
   group_by(performer, year) %>%
   summarise(avg_popularity = mean(week_position, na.rm = TRUE),.groups = 'drop')
 
-#adding in the missing years
+# Giving a specific value (105) for years performer did not make it in Top 100
 year_range <- as.double("2010":"2020")
 
 avg_popularity_with_missing_years <- average_popularity %>%
@@ -111,7 +160,7 @@ line_graph_imputed_updated <- ggplot(avg_popularity_with_missing_years, aes(x = 
   scale_x_continuous(breaks = seq(2010, 2020, 1)) +
   ylim(105,1) + 
   labs(title = "Average Weekly Position of Top 5 Performers (2010-2020)",
-       subtitle = "Top 5 performers are those with the most weeks spent in the top 10 positions",
+       subtitle = "Top 5 performers are those with the most weeks spent in the top 20 positions",
        x = "Year",
        y = "Weekly Position",
        color = "Performer") +
@@ -121,89 +170,93 @@ line_graph_imputed_updated <- ggplot(avg_popularity_with_missing_years, aes(x = 
 print(line_graph_imputed_updated)
 ```
 
-this plot means...
+The main goal of the visualization is to show the popularity trends of the top 5 performers, Drake, Bruno Mars, Taylor Swift, The Weeknd, and Ed Sheeran, from 2010 to 2020. By comparing their average weekly positions, readers can understand their relative success during this time.  Some trends revealed by the plots include:  
 
-```{r q1b, echo=FALSE}
+1. Fluctuations in average weekly positions: The average weekly positions for most performers fluctuated over the years, indicating that their popularity was inconsistent. However, Drake & Taylor Swift are both consistent with their performance as they have made it into the top 20 every year and generally have a higher weekly position. Some artists experienced periods of increased popularity, while others saw declines in their average weekly positions. This can be observed in 2015 when The Weeknd and Ed Sheeran saw significant popularity spikes, while Bruno Mars was absent from the Top 100.  
 
-library(ggplot2)
+2. Gaps in presence: The graph reveals instances where a performer did not make it to the Top 100 in a specific year. In this case, a value of 105 has been assigned to their average weekly position for that year (e.g., Ed Sheeran in 2010-2011). This imputation helps highlight the absence of these performers from the charts in those years and provides a more comprehensive view of their performance over the decade.  
 
-top_5_perfor <- billboard %>%
-  separate(week_id, into = c("month", "day","year"), sep = "/") %>%
-  select(year,performer,week_position) %>%
-  na.omit() %>%
-  filter(year >= 2010 & year <= 2020,week_position <= 20) %>%
-  group_by(performer) %>%
-  summarise(appear = n()) %>%
-  arrange(desc(appear)) %>%
-  ungroup() %>%
-  top_n(5,appear) %>%
-  pull(performer)
-top_5_perfor
+Another observation is that some years, like 2015, had higher average weekly positions for multiple performers, suggesting a competitive music landscape. The Weeknd, Taylor Swift and Ed Sheeran had a higher average weekend position & this was attributed to the release of highly acclaimed albums such as "Beauty Behind the Madness" by The Weeknd, and hit singles like "Blank Space" & "Thinking Out Loud" by Taylor Swift & Ed Sheeran respectively, which resonated with a wide audience and dominated the charts.  
 
+In summary, the visualisation captures the music industry's complex and dynamic nature of the music industry, where artists' popularity can rise and fall based on various factors such as the release of new music, collaborations, and changes in the musical landscape. The visualisation effectively conveys these trends and provides insights into the dynamics of the top performers' popularity during the 2010-2020 period.
+
+
+```{r q1b}
+
+#2nd plot: bar chart
+
+# Calculate the number the times the song of the performer appears on Top 20.
 bar_perfor <- billboard %>%
   separate(week_id, into = c("month", "day","year"), sep = "/") %>%
   select(year,performer,week_position) %>%
   na.omit() %>%
-  filter(year >= 2010 & year <= 2020, performer %in% top_5_perfor,week_position <= 20) %>%
+  filter(year >= 2010 & year <= 2020, performer %in% perf_top_5,week_position <= 20) %>%
   group_by(performer,year) %>%
   summarize(appear = n(), .groups = 'drop')
-bar_perfor
 
+# Giving a specific value (0) for years performer did not make it in Top20
 year_range <- as.character("2010":"2020")
 
 bar_missing <- bar_perfor %>%
   complete(performer, year = year_range, fill = list(appear = 0))
 
+# Creating a bar graph using facet wrp in ggplot2
 ggplot(bar_missing, aes(x = year, y = appear, fill = year)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  labs(x = "Performer", y = "Number of Times the performer appear as Top 20 on Billboard", fill = "Year") +
-  ggtitle("How did the Top 5 performer appearance frequency change over the years (2010-2020)") +
+  geom_bar(stat = "identity", position = "dodge", show.legend = FALSE) +
+  labs(y = "Number of Times the song of the performer appear as Top 20 on Billboard", fill = "Year") + 
+  ggtitle("Change in Appearance Frequency for Top 5 Performers (2010-2020)") +
   scale_fill_manual(values=c("#CC79A7", "#E69F00", "maroon","#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "purple", "brown","grey")) +
-  facet_wrap(~ performer, scales = "free_x")
+  facet_wrap(~ performer, scales = "free_x") + 
+  ylim(0, 80) + 
+  coord_flip()
 
 ```
 
-this plot means...
+We can see that Taylor Swift and Drake had a relatively consistent level of appearances throughout the period, appearing in the Top 20 almost every year. This consistency is also reflected in their average weekly position every year, as their position generally did not fall too drastically. The Weeknd did not appear in the Top 20 until 2015, after which he had a rapid increase in appearances, becoming one of the most frequently seen performers on the chart by 2020. The Weeknd's increase in popularity in the later half of the decade is also supported by the overall increase in the average weekly position of his songs every year, ending up with the top average weekly position among the 5 performers. Bruno Mars' and Ed Sheeran's popularity across the decade fluctuated quite a lot, as they both only appeared in the Top 20 in six out of eleven years and had the fewest years where they had songs in the Billboard Top 100 chart. Interestingly, for every year that Ed Sheeran's songs appear on the Billboard Top 100, he will also have songs that reach the top 20. This suggests that while not all of his songs will get popular, the songs that do get popular will be very popular.
 
-## Question 2
-### insert question here
-#### introduction to the question
+Although the visualization for facet wrap may seem empty at first glance, the main aim of this visualization is not comparing each performer against one another, but to observe the appearance frequency of each artist over the years. 
 
-#### Methodology
 
-##### 1st plot: line chart
+## **Question 2**
 
-(insert description of variables plotted, design choices for why the choice of variables and information used is the best for providing the answers to the question)
+### *"How has the type of songs that are widely enjoyed by the public changed over time?"*
 
-##### 2nd plot: bar chart
+#### **Introduction to the question**
 
-(insert description of variables plotted, design choices for why the choice of variables and information used is the best for providing the answers to the question)
+The second question we want to answer is: How has the type of songs that are widely enjoyed by the public changed over time? We are interested in this question as we would like to know if there were any significant changes to the music tastes of the public from the past till now, and if there was, what were the changes. To answer this question, we used the week ID variable in the Billboard dataset to find out which songs were widely listened to in a certain period of time. We then analysed audio features from Spotify, specifically genre, danceability, energy, acousticness and valence, to determine the overall sound of these songs. 
 
-#### Visualizations & Discussion
+#### **Methodology**
 
-```{r q2a, echo=FALSE}
-#kai lin's part
+As this question requires information from both datasets, we joined the datasets using inner join, so only songs that appear in both datasets are kept for analysis. We also limited the time period to 1961-2020, so that there would be a total of 10 songs in each decade.
 
-tuesdata <- tidytuesdayR::tt_load('2021-09-14')
-billboard = tuesdata$billboard
-audio = tuesdata$audio_features
+##### **1st plot: Line Graph with Smoother**
+
+For the first graph, we plotted the mean danceability, energy, valence and acousticness of the songs that appeared in the Billboard Top 100 in each year against the year. We used the songs that appeared in the Billboard Top 100, as the Billboard Top 100 is based on sales, radio play and online streaming in the US (Trust, 2013), so songs that were widely listened to and enjoyed would likely appear on the chart. We selected these particular features as they provide a comprehensive overview of a song's sound and vibe. We believe that the measurement of these features also appropriately generalizes other unused features (e.g. the measure of energy accounts for loudness of the song and the measure of danceability accounts for the tempo of the song.) Thus, by choosing features evaluated using other objective qualities of the song, we can reduce overlap in the variables used. We chose to present this information using a line graph, as a line graph is able to accurately portray changes over time. We also used a smoother, so the overall trend over time can be shown clearly with minimal noise. To make the changes more easily seen and compared, we normalized the values such that they range from 0-1.
+
+##### **2nd plot: Bar Chart**
+
+Genres in music are also crucial in generalizing the culture and preferences of the audience.  As a result, we wanted to investigate which were the most popular genres across all years in the Billboard, and how the frequency of the genre appearing in the Billboard Top 100 changed over time. For this specific task, we decided to use a stacked bar graph, to make use of the size of each colored bar in showing how the proportion of each discrete genre in the Billboard Top 100 generally changes over a period of time. To avoid overpopulating the graph with bars for all 56 years, we decided to round up all years to the nearest decade, and plot the proportion of a genre in the Billboard Top 100 across each decade. Additionally, as there are over 1000 genres which also included sub-genres that were slight variations from the main genre, some of these genres were generalized based on their names, and the top 7 genres were selected, based on the number of times the genre was tagged for songs in the Billboard Top 100 across all years.
+
+
+#### **Visualisations & Discussion**
+
+```{r q2a}
+
+# 1st plot: line chart
 
 billboard = billboard %>% na.omit()
-
-audio_features = audio %>% drop_na()
-
+audio_features = audio_features %>% drop_na()
 billboard_audio_2 = billboard %>%
   inner_join(audio_features, by = "song_id") %>%
   separate(week_id, into = c("month", "day", "year"), sep = "/", 
            convert = TRUE)
-
 
 factors = billboard_audio_2 %>%
   filter(year >= 1961 & year <= 2020) %>%
   group_by(year) %>%
   distinct(year, song_id, .keep_all = TRUE)
 
-
+# calculate the mean and standard deviation of each value to plot
 features = factors %>%
   summarise(mean_dance = mean(danceability), mean_energy = mean(energy), 
             mean_valence = mean(valence), mean_ac = mean(acousticness), 
@@ -223,26 +276,21 @@ features2 = features %>%
   gather(std_dance:std_valence, key = "Feature", value = "Value") %>%
   gather(mean_dance:mean_ac, key = "type", value = "mean")
 
-
-
 ggplot(features2, aes(year, Value, color = Feature)) +
   geom_smooth(linewidth = 1) +
-  scale_color_manual(values = c("black", "red", "blue", "green4"), 
-                     labels = c("Acousticness", "Danceability",
-                                "Energy", 
-                                "Valence")) +
-  labs(y = "", x = "Year",
-       title = "How features of popular songs have changed over time") +
+  scale_color_manual(values = c("black", "red", "blue", "green4"), labels = c("Acousticness", "Danceability", "Energy", "Valence")) +
+  labs(y = "", x = "Year", title = "How features of popular songs have changed over time") +
   theme_minimal() +
   theme(legend.position = "top") +
   scale_x_continuous(breaks = c(1961, seq(1970, 2020, 10)))
 ```
 
-this plot means...
+From the first graph, while the danceability and energy of widely enjoyed songs increased over time, the valence and acousticness fell over time. Danceability and energy generally increased steadily from 1960 to 1990, acousticness dropped drastically from 1960 to 1985, and valence remained relatively constant from 1960 to 1983 before dropping steeply towards 2020. The similarity between the trend of danceability and energy may be from the possible positive correlation between them. The fall in acousticness is likely due to the development and increasing popularity of electronic instruments in songs. In particular, the steep drop in acousticness from 1960 to around 1985 corresponds to the period where electronic music was rising in popularity in America, which is from the late 1960s to early 1980s (Martina, 2022). After the steep drop, acousticness stayed quite low, suggesting that electronic instruments remained popular from 1985 onwards. As developments in electronic music led to the emergence and increasing popularity of the electronic dance music sub-genre (Martina, 2022), this may have led to the overall danceability of songs in the Billboard Top 100 increasing. This reasoning is supported by how danceability was increasing while acousticness fell. Lastly, the fall in valence on the graph may be the result of a rise in negative lyrics in songs after the 1980s (Acerbi & Brand, 2020). Thus, from this graph, it can be seen that the public increasingly prefers more energetic, danceable, electronic and negative-sounding songs.
 
-```{r q2b, echo=FALSE}
-# hui xuan's part
-#clean and merge dataset
+```{r q2b}
+# 2nd plot: bar chart
+
+# Clean and merge dataset using an inner join
 billboard1 <- billboard %>%
   drop_na()
 
@@ -250,9 +298,10 @@ audio_features1 <- audio_features %>%
   drop_na()
 
 merged <- billboard1 %>%
-  left_join(audio_features, by = "song_id", suffix = c("_board", "_features")) #perform a left join?
-  
-merged$week_id <- as.POSIXct(merged$week_id, format = "%d/%m/%Y") #converts the string to datetime woah
+  inner_join(audio_features, by = "song_id", suffix = c("_board", "_features"))
+
+# Convert week_id to a datetime format  
+merged$week_id <- as.POSIXct(merged$week_id, format = "%d/%m/%Y")
 merged$week_id <- format(merged$week_id, format = "%Y")
 
 #find the maximum number of genres. we assume this by max word length
@@ -260,10 +309,9 @@ max_length_genre <- merged %>%
   select(week_id, week_position, song_id, peak_position, spotify_genre, spotify_track_id) %>%
   drop_na() %>%
   rename(year = week_id) %>%
-  filter(nchar(spotify_genre) == 319) #max number of genres is assumed to be 23, based on max length
+  filter(nchar(spotify_genre) == 319) # song entry with most number of genres has a string length fo 319
 
-#===
-
+# split strings in genre columns into 23 columns, as 23 is max number of genres tagged in a song entry
 genre_nos = sprintf("Genre_%d", 1:23)
 genres2 = merged %>%
   select(week_id, song_id, spotify_genre, spotify_track_id) %>%
@@ -284,6 +332,7 @@ split2 <- genres2 %>%
 split2$genre = gsub("\\]", "", split2$genre)
 split2$genre = gsub("\\'", "", split2$genre)
 
+# remove all values in genres column that is empty
 split_clean2 <- split2 %>%
   filter(genre != "")
 
@@ -294,18 +343,19 @@ genre_no_2 = split_clean2 %>% group_by(song_id) %>%
   summarise(no = sum(factor)) %>% 
   arrange(-no)
 
-genres_top5 = genre_no_2 %>% slice_max(no, n = 5) %>% pull(genre)
-
 genre_no_2_2 = genre_no_2 %>%
   mutate(genre = reorder(as.factor(genre), no))
 
+# get top 7 genres to plot
 genres_top7 = genre_no_2 %>% 
   slice_max(no, n=7) %>% 
   pull(genre)
 
+# reformat dataframe to plot total number of times genre appears in each decade.
+# rename factors
 split_genre_year2 <- split_clean2 %>%
   mutate(year = as.numeric(year)) %>%
-  filter(year >= 1961 & year < 2020, genre %in% genres_top7) %>%
+  filter(year >= 1961 & year <= 2020, genre %in% genres_top7) %>%
   group_by(song_id, year) %>%
   mutate(factor = 1/n()) %>%
   ungroup() %>%
@@ -313,16 +363,20 @@ split_genre_year2 <- split_clean2 %>%
   summarise(genre_count = sum(factor)) %>%
   arrange(desc(genre_count)) %>%
   arrange(year) %>%
-  mutate(nearest_decade = year - (year %% 10) + 10,
-         proportion = genre_count / sum(genre_count))
+  mutate(nearest_decade = case_when(year >= 1961 & year <= 1970 ~ "1961 - 1970",
+                                    year >= 1971 & year <= 1980 ~ "1971 - 1980", 
+                                    year >= 1981 & year <= 1990 ~ "1981 - 1990",
+                                    year >= 1991 & year <= 2000 ~ "1991 - 2000",
+                                    year >= 2001 & year <= 2010 ~ "2001 - 2010",
+                                    year >= 2011 & year <= 2020 ~ "2011 - 2020"),
+         proportion = genre_count/sum(genre_count))
 
-#===
 # define a colorblind palette
 cbPalette <- c("#CC79A7", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#000000", "maroon", "brown")
 
 ggplot(split_genre_year2, aes(x = nearest_decade, fill = genre)) + 
   geom_col(mapping = aes(y = proportion), position = "fill") +
-  scale_fill_manual(values = cbPalette) + 
+  scale_fill_manual(values = cbPalette, labels = c("Adult Standards", "Country", "Dance Pop", "Mellow Gold", "Pop", "Rock", "Soft Rock")) + 
   theme_minimal() +
   ylim(0, 1) + 
   ggtitle("Popularity of Genres over time") + 
@@ -330,8 +384,15 @@ ggplot(split_genre_year2, aes(x = nearest_decade, fill = genre)) +
 
 ```
 
-this plot means...
+From the second graph, it can be seen that out of the 7 genres, dance pop, country and pop generally gained popularity over time while adult standards fell in popularity over time. The changes in proportion of songs belonging to the mellow gold, rock and soft rock genres followed a similar pattern, where the proportion rose until it peaked in the 1970s and 1980s, before falling quickly in the decades after. The biggest change in popular genres seems to be from the 1980s (1981 - 1990) to the 1990s (1991 - 2000), where the proportion of songs belonging to pop, dance pop and country genres increased dramatically, while the proportion of songs belonging to the mellow gold, rock and soft rock genres fell significantly, such that dance pop overtook soft rock to be the most popular genre. After the 1990s, pop continued to grow rapidly while rock and soft rock continued to fall in popularity, and dance pop and country stayed relatively constant. One unexpected observation is the rise of popularity of the country genre in recent decades. This may be because popular artists such as Taylor Swift who release pop music also release country songs, which also tend to be popular with the same fanbase and audiences (Charlie K., 2022).
 
-## References
-- reference the dataset
-- other information sources should be added here
+## **References**
+Billboard Hot Weekly Charts - dataset by kcmillersean. data.world. (2022, July 18). Retrieved April 14, 2023, from https://data.world/kcmillersean/billboard-hot-100-1958-2017# 
+
+Acerbi, A., & Brand, C. (2020). Why are pop songs getting sadder than they used to be? Big Think. https://bigthink.com/high-culture/music-is-getting-sadder/
+
+Martina. (2022, July 25). The History And Evolution Of Electronic Music. iMusician. https://imusician.pro/en/resources/guides/history-evolution-electronic-music
+
+Trust, G. (2013, September 29). Ask Billboard: How Does The Hot 100 Work? Billboard. https://www.billboard.com/pro/ask-billboard-how-does-the-hot-100-work/
+
+Charlie, K. (2022, October 18). Why is country music so popular? | Ben Vaughn. Why Is Country Music So Popular? Retrieved April 14, 2023, from https://www.benvaughn.com/why-is-country-music-so-popular/ 
