@@ -75,16 +75,10 @@ merged$week_id <- format(merged$week_id, format = "%Y")
 
 ```{r q1a, echo=FALSE}
 # charmaine part
-install.packages("tidytuesdayR")
-library(tidyverse)
-tuesdata <- tidytuesdayR::tt_load('2021-09-14')
-tuesdata <- tidytuesdayR::tt_load(2021, week = 38)
-billboard <- tuesdata$billboard
-audio <- tuesdata$audio_features
 
 perf = billboard %>%
   separate(week_id, into = c("month", "day", "year"), sep = "/") %>%
-  filter(year >= 2010 & year <= 2020, week_position <= 10) %>%
+  filter(year >= 2010 & year <= 2020, week_position <= 20) %>%
   group_by(performer) %>%
   summarise(no_weeks = n())
 
@@ -97,26 +91,21 @@ filtered_data <- billboard %>%
   mutate(year = as.numeric(year)) %>%
   filter(year >= 2010 & year <= 2020) %>%
   select(performer, year, week_position)
-
   
+
 # Calculate average popularity per year for each performer
-avg_popularity <- filtered_data %>%
+average_popularity <- filtered_data %>%
   group_by(performer, year) %>%
-  summarise(avg_popularity = mean(week_position, na.rm = TRUE))
-  
-  
-# The Weeknd (2010-2011) and Bruno Mars (2019-2020)
-extra_years <- tibble(
-  performer = c("The Weeknd", "The Weeknd", "Bruno Mars", "Bruno Mars"),
-  year = c(2010, 2011, 2019, 2020),
-  avg_popularity = c(105, 105, 105, 105)
-)
+  summarise(avg_popularity = mean(week_position, na.rm = TRUE),.groups = 'drop')
 
-# Add the data to the avg_popularity data frame
-avg_popularity <- bind_rows(avg_popularity, extra_years)
+#adding in the missing years
+year_range <- as.double("2010":"2020")
+
+avg_popularity_with_missing_years <- average_popularity %>%
+  complete(performer, year = year_range, fill = list(avg_popularity = 105))
 
 # Create the line graph using ggplot2
-line_graph_imputed_updated <- ggplot(avg_popularity, aes(x = year, y = avg_popularity, group = performer, color = performer)) +
+line_graph_imputed_updated <- ggplot(avg_popularity_with_missing_years, aes(x = year, y = avg_popularity, group = performer, color = performer)) +
   geom_line(linewidth = 1, alpha = 0.7) +
   geom_point(size=1,alpha = 0.7) +
   scale_x_continuous(breaks = seq(2010, 2020, 1)) +
@@ -135,7 +124,43 @@ print(line_graph_imputed_updated)
 this plot means...
 
 ```{r q1b, echo=FALSE}
-#insert code here
+
+library(ggplot2)
+
+top_5_perfor <- billboard %>%
+  separate(week_id, into = c("month", "day","year"), sep = "/") %>%
+  select(year,performer,week_position) %>%
+  na.omit() %>%
+  filter(year >= 2010 & year <= 2020,week_position <= 20) %>%
+  group_by(performer) %>%
+  summarise(appear = n()) %>%
+  arrange(desc(appear)) %>%
+  ungroup() %>%
+  top_n(5,appear) %>%
+  pull(performer)
+top_5_perfor
+
+bar_perfor <- billboard %>%
+  separate(week_id, into = c("month", "day","year"), sep = "/") %>%
+  select(year,performer,week_position) %>%
+  na.omit() %>%
+  filter(year >= 2010 & year <= 2020, performer %in% top_5_perfor,week_position <= 20) %>%
+  group_by(performer,year) %>%
+  summarize(appear = n(), .groups = 'drop')
+bar_perfor
+
+year_range <- as.character("2010":"2020")
+
+bar_missing <- bar_perfor %>%
+  complete(performer, year = year_range, fill = list(appear = 0))
+
+ggplot(bar_missing, aes(x = year, y = appear, fill = year)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Performer", y = "Number of Times the performer appear as Top 20 on Billboard", fill = "Year") +
+  ggtitle("How did the Top 5 performer appearance frequency change over the years (2010-2020)") +
+  scale_fill_manual(values=c("#CC79A7", "#E69F00", "maroon","#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "purple", "brown","grey")) +
+  facet_wrap(~ performer, scales = "free_x")
+
 ```
 
 this plot means...
